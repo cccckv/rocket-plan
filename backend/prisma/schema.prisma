@@ -1,0 +1,164 @@
+// This is your Prisma schema file for Rocket Plan (CreateOK)
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// User - 用户表
+model User {
+  id        Int      @id @default(autoincrement())
+  
+  // 认证信息
+  phone     String?  @unique
+  googleId  String?  @unique
+  email     String   @unique
+  password  String?
+  name      String?
+  
+  // 积分系统
+  credits   Int      @default(2)  // 新用户免费 2 个视频
+  tier      String   @default("free")  // free / basic / pro
+  
+  // 关联
+  videos    Video[]
+  materials Material[]
+  transactions Transaction[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([phone])
+  @@index([googleId])
+  @@index([email])
+}
+
+// Video - 生成的视频
+model Video {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  
+  status     String   // pending / rendering / completed / failed
+  language   String   // zh / en
+  
+  // 输入
+  userInput  String   // 用户填写的卖点
+  templateId Int?
+  bgmId      Int?
+  bgm        BGM?     @relation(fields: [bgmId], references: [id])
+  
+  // 素材关联
+  materials  VideoMaterial[]
+  
+  // AI 生成内容
+  scriptId   Int?     @unique
+  script     Script?
+  
+  // 输出
+  outputUrl  String?  // S3 URL
+  duration   Int?     // 秒
+  
+  // 任务信息
+  jobId      String?  // BullMQ Job ID
+  error      String?  // 错误信息
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([userId, status])
+  @@index([status])
+}
+
+// Script - AI 生成的脚本
+model Script {
+  id       Int    @id @default(autoincrement())
+  videoId  Int    @unique
+  video    Video  @relation(fields: [videoId], references: [id])
+  
+  hook     String  // 钩子
+  value    String  // 卖点
+  cta      String  // 行动号召
+  
+  language String  // zh / en
+  
+  createdAt DateTime @default(now())
+}
+
+// Material - 用户上传的素材
+model Material {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id])
+  
+  type     String  // image / video
+  s3Url    String
+  s3Key    String  // S3 object key
+  
+  size     Int     // bytes
+  duration Int?    // 视频时长（秒）
+  
+  // 多对多关联
+  videos   VideoMaterial[]
+  
+  uploadedAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+// VideoMaterial - 视频与素材的多对多关联
+model VideoMaterial {
+  videoId    Int
+  video      Video    @relation(fields: [videoId], references: [id])
+  materialId Int
+  material   Material @relation(fields: [materialId], references: [id])
+  
+  order      Int      // 素材在视频中的顺序
+  
+  @@id([videoId, materialId])
+}
+
+// Template - 视频模板
+model Template {
+  id          Int    @id @default(autoincrement())
+  name        String
+  category    String  // furniture / electronics / fashion
+  configJson  String  // 模板配置 (JSON string for SQLite)
+  thumbnailUrl String
+  
+  createdAt DateTime @default(now())
+}
+
+// BGM - 背景音乐
+model BGM {
+  id       Int     @id @default(autoincrement())
+  name     String
+  fileUrl  String  // S3 URL
+  s3Key    String  // S3 object key
+  duration Int     // 秒
+  category String  // upbeat / calm / dramatic
+  license  String  @default("Pixabay License")
+  
+  videos   Video[]
+  
+  createdAt DateTime @default(now())
+}
+
+// Transaction - 积分交易记录
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  
+  amount    Int      // 正数=充值，负数=消费
+  type      String   // purchase / consume / refund
+  videoId   Int?     // 如果是消费，关联视频
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
