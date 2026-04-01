@@ -68,16 +68,16 @@ let AuthService = AuthService_1 = class AuthService {
         this.redisService = redisService;
         this.emailService = emailService;
     }
-    async sendOtp(phone) {
+    async sendOtp(phone, purpose = 'login') {
         const canSend = await this.redisService.checkOtpRateLimit(phone);
         if (!canSend) {
             throw new common_1.BadRequestException('Please wait 60 seconds before requesting another OTP');
         }
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        await this.redisService.setOtp(phone, otp);
+        await this.redisService.setOtp(phone, otp, purpose);
         try {
             await this.smsService.sendOtp(phone, otp);
-            this.logger.log(`OTP sent to ${phone}`);
+            this.logger.log(`OTP (${purpose}) sent to ${phone}`);
             return { message: 'OTP sent successfully' };
         }
         catch (error) {
@@ -86,12 +86,20 @@ let AuthService = AuthService_1 = class AuthService {
         }
     }
     async verifyOtp(phone, otp) {
-        const storedOtp = await this.redisService.getOtp(phone);
+        const purpose = 'login';
+        const canVerify = await this.redisService.checkOtpVerifyLimit(phone, purpose);
+        if (!canVerify) {
+            throw new common_1.BadRequestException('Too many failed attempts. Please try again in 10 minutes.');
+        }
+        const storedOtp = await this.redisService.getOtp(phone, purpose);
         if (!storedOtp)
             throw new common_1.BadRequestException('OTP expired or not found');
-        if (storedOtp !== otp)
+        if (storedOtp !== otp) {
+            await this.redisService.incrementOtpVerifyAttempt(phone, purpose);
             throw new common_1.BadRequestException('Invalid OTP');
-        await this.redisService.deleteOtp(phone);
+        }
+        await this.redisService.deleteOtp(phone, purpose);
+        await this.redisService.clearOtpVerifyAttempts(phone, purpose);
         const user = await this.prisma.user.findUnique({ where: { phone } });
         if (!user) {
             throw new common_1.BadRequestException('Phone number not registered. Please register first.');
@@ -111,28 +119,37 @@ let AuthService = AuthService_1 = class AuthService {
         };
     }
     async register(name, email, otp, password) {
-        const storedOtp = await this.redisService.getEmailOtp(email);
+        const normalizedEmail = email.toLowerCase();
+        const purpose = 'register';
+        const canVerify = await this.redisService.checkOtpVerifyLimit(normalizedEmail, purpose);
+        if (!canVerify) {
+            throw new common_1.BadRequestException('Too many failed attempts. Please try again in 10 minutes.');
+        }
+        const storedOtp = await this.redisService.getEmailOtp(normalizedEmail, purpose);
         if (!storedOtp)
             throw new common_1.BadRequestException('OTP expired or not found');
-        if (storedOtp !== otp)
+        if (storedOtp !== otp) {
+            await this.redisService.incrementOtpVerifyAttempt(normalizedEmail, purpose);
             throw new common_1.BadRequestException('Invalid OTP');
-        const existing = await this.prisma.user.findUnique({ where: { email } });
+        }
+        const existing = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (existing) {
             throw new common_1.BadRequestException('Email already registered');
         }
-        await this.redisService.deleteEmailOtp(email);
+        await this.redisService.deleteEmailOtp(normalizedEmail, purpose);
+        await this.redisService.clearOtpVerifyAttempts(normalizedEmail, purpose);
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await this.prisma.user.create({
             data: {
                 name,
-                email,
+                email: normalizedEmail,
                 password: hashedPassword,
                 credits: 2,
                 tier: 'free',
             },
         });
-        this.logger.log(`New user registered via email: ${email}`);
-        const tokens = await this.generateTokens(user.id, undefined, undefined, email);
+        this.logger.log(`New user registered via email: ${normalizedEmail}`);
+        const tokens = await this.generateTokens(user.id, undefined, undefined, normalizedEmail);
         await this.redisService.setRefreshToken(user.id, tokens.refreshToken);
         return {
             user: {
@@ -147,30 +164,39 @@ let AuthService = AuthService_1 = class AuthService {
         };
     }
     async registerWithPhone(phone, otp, email, password) {
-        const storedOtp = await this.redisService.getOtp(phone);
+        const normalizedEmail = email.toLowerCase();
+        const purpose = 'register';
+        const canVerify = await this.redisService.checkOtpVerifyLimit(phone, purpose);
+        if (!canVerify) {
+            throw new common_1.BadRequestException('Too many failed attempts. Please try again in 10 minutes.');
+        }
+        const storedOtp = await this.redisService.getOtp(phone, purpose);
         if (!storedOtp)
             throw new common_1.BadRequestException('OTP expired or not found');
-        if (storedOtp !== otp)
+        if (storedOtp !== otp) {
+            await this.redisService.incrementOtpVerifyAttempt(phone, purpose);
             throw new common_1.BadRequestException('Invalid OTP');
+        }
         const existingPhone = await this.prisma.user.findUnique({ where: { phone } });
         if (existingPhone)
             throw new common_1.BadRequestException('Phone number already registered');
-        const existingEmail = await this.prisma.user.findUnique({ where: { email } });
+        const existingEmail = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (existingEmail)
             throw new common_1.BadRequestException('Email already registered. Please login with that email and bind your phone in settings.');
-        await this.redisService.deleteOtp(phone);
+        await this.redisService.deleteOtp(phone, purpose);
+        await this.redisService.clearOtpVerifyAttempts(phone, purpose);
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await this.prisma.user.create({
             data: {
                 phone,
-                email,
+                email: normalizedEmail,
                 password: hashedPassword,
                 credits: 2,
                 tier: 'free',
             },
         });
-        this.logger.log(`New user registered via phone: ${phone}, email: ${email}`);
-        const tokens = await this.generateTokens(user.id, phone, undefined, email);
+        this.logger.log(`New user registered via phone: ${phone}, email: ${normalizedEmail}`);
+        const tokens = await this.generateTokens(user.id, phone, undefined, normalizedEmail);
         await this.redisService.setRefreshToken(user.id, tokens.refreshToken);
         return {
             user: {
@@ -186,9 +212,10 @@ let AuthService = AuthService_1 = class AuthService {
     }
     async login(account, password) {
         const isEmail = account.includes('@');
+        const normalizedAccount = isEmail ? account.toLowerCase() : account;
         const user = isEmail
-            ? await this.prisma.user.findUnique({ where: { email: account } })
-            : await this.prisma.user.findUnique({ where: { phone: account } });
+            ? await this.prisma.user.findUnique({ where: { email: normalizedAccount } })
+            : await this.prisma.user.findUnique({ where: { phone: normalizedAccount } });
         if (!user)
             throw new common_1.BadRequestException('Account not found');
         if (!user.password) {
@@ -199,7 +226,7 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.BadRequestException('Invalid password');
         const tokens = await this.generateTokens(user.id, user.phone ?? undefined, user.googleId ?? undefined, user.email);
         await this.redisService.setRefreshToken(user.id, tokens.refreshToken);
-        this.logger.log(`User logged in: ${account}`);
+        this.logger.log(`User logged in: ${normalizedAccount}`);
         return {
             user: {
                 id: user.id,
@@ -213,31 +240,35 @@ let AuthService = AuthService_1 = class AuthService {
             ...tokens,
         };
     }
-    async googleLogin(googleId, email, displayName) {
+    async googleLogin(googleId, email, displayName, emailVerified) {
+        const normalizedEmail = email.toLowerCase();
+        if (!emailVerified) {
+            throw new common_1.BadRequestException('Google email is not verified. Please verify your email with Google first.');
+        }
         let user = await this.prisma.user.findUnique({ where: { googleId } });
         if (!user) {
-            const existingUser = await this.prisma.user.findUnique({ where: { email } });
+            const existingUser = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
             if (existingUser) {
                 user = await this.prisma.user.update({
                     where: { id: existingUser.id },
                     data: { googleId, name: existingUser.name || displayName },
                 });
-                this.logger.log(`Google ID linked to existing user: ${email}`);
+                this.logger.log(`Google ID linked to existing user: ${normalizedEmail}`);
             }
             else {
                 user = await this.prisma.user.create({
                     data: {
                         googleId,
-                        email,
+                        email: normalizedEmail,
                         name: displayName,
                         credits: 2,
                         tier: 'free',
                     },
                 });
-                this.logger.log(`New user registered via Google: ${email}`);
+                this.logger.log(`New user registered via Google: ${normalizedEmail}`);
             }
         }
-        const tokens = await this.generateTokens(user.id, user.phone ?? undefined, googleId, email);
+        const tokens = await this.generateTokens(user.id, user.phone ?? undefined, googleId, normalizedEmail);
         await this.redisService.setRefreshToken(user.id, tokens.refreshToken);
         return {
             user: {
@@ -264,27 +295,36 @@ let AuthService = AuthService_1 = class AuthService {
         this.logger.log(`User ${userId} set password`);
         return { message: 'Password set successfully' };
     }
-    async sendEmailOtp(email) {
-        const canSend = await this.redisService.checkEmailOtpRateLimit(email);
+    async sendEmailOtp(email, purpose = 'register') {
+        const normalizedEmail = email.toLowerCase();
+        const canSend = await this.redisService.checkEmailOtpRateLimit(normalizedEmail);
         if (!canSend) {
             throw new common_1.BadRequestException('Please wait 60 seconds before requesting another OTP');
         }
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        await this.redisService.setEmailOtp(email, otp);
-        await this.emailService.sendOtp(email, otp);
-        this.logger.log(`Email OTP sent to ${email}`);
+        await this.redisService.setEmailOtp(normalizedEmail, otp, purpose);
+        await this.emailService.sendOtp(normalizedEmail, otp);
+        this.logger.log(`Email OTP (${purpose}) sent to ${normalizedEmail}`);
         return { message: 'OTP sent successfully' };
     }
     async resetPassword(phone, otp, newPassword) {
-        const storedOtp = await this.redisService.getOtp(phone);
+        const purpose = 'reset';
+        const canVerify = await this.redisService.checkOtpVerifyLimit(phone, purpose);
+        if (!canVerify) {
+            throw new common_1.BadRequestException('Too many failed attempts. Please try again in 10 minutes.');
+        }
+        const storedOtp = await this.redisService.getOtp(phone, purpose);
         if (!storedOtp)
             throw new common_1.BadRequestException('OTP expired or not found');
-        if (storedOtp !== otp)
+        if (storedOtp !== otp) {
+            await this.redisService.incrementOtpVerifyAttempt(phone, purpose);
             throw new common_1.BadRequestException('Invalid OTP');
+        }
         const user = await this.prisma.user.findUnique({ where: { phone } });
         if (!user)
             throw new common_1.BadRequestException('Phone number not registered');
-        await this.redisService.deleteOtp(phone);
+        await this.redisService.deleteOtp(phone, purpose);
+        await this.redisService.clearOtpVerifyAttempts(phone, purpose);
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await this.prisma.user.update({
             where: { id: user.id },
@@ -294,15 +334,24 @@ let AuthService = AuthService_1 = class AuthService {
         return { message: 'Password reset successfully' };
     }
     async resetPasswordEmail(email, otp, newPassword) {
-        const storedOtp = await this.redisService.getEmailOtp(email);
+        const normalizedEmail = email.toLowerCase();
+        const purpose = 'reset';
+        const canVerify = await this.redisService.checkOtpVerifyLimit(normalizedEmail, purpose);
+        if (!canVerify) {
+            throw new common_1.BadRequestException('Too many failed attempts. Please try again in 10 minutes.');
+        }
+        const storedOtp = await this.redisService.getEmailOtp(normalizedEmail, purpose);
         if (!storedOtp)
             throw new common_1.BadRequestException('OTP expired or not found');
-        if (storedOtp !== otp)
+        if (storedOtp !== otp) {
+            await this.redisService.incrementOtpVerifyAttempt(normalizedEmail, purpose);
             throw new common_1.BadRequestException('Invalid OTP');
-        const user = await this.prisma.user.findUnique({ where: { email } });
+        }
+        const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (!user)
             throw new common_1.BadRequestException('Email not registered');
-        await this.redisService.deleteEmailOtp(email);
+        await this.redisService.deleteEmailOtp(normalizedEmail, purpose);
+        await this.redisService.clearOtpVerifyAttempts(normalizedEmail, purpose);
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await this.prisma.user.update({
             where: { id: user.id },

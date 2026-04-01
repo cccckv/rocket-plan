@@ -13,10 +13,16 @@ exports.SendEmailOtpDto = void 0;
 const class_validator_1 = require("class-validator");
 class SendEmailOtpDto {
     email;
+    purpose;
 }
 exports.SendEmailOtpDto = SendEmailOtpDto;
 __decorate([
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], SendEmailOtpDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['register', 'reset']),
+    __metadata("design:type", String)
+], SendEmailOtpDto.prototype, "purpose", void 0);
 //# sourceMappingURL=send-email-otp.dto.js.map

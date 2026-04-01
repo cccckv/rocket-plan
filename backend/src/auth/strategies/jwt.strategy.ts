@@ -29,6 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     // 返回的对象会被挂载到 request.user
     return {
+      userId: user.id,
       id: user.id,
       name: user.name,
       phone: user.phone,

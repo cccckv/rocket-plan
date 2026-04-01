@@ -1,0 +1,155 @@
+{
+  "info": {
+    "name": "AI Video Generation API",
+    "description": "AI 视频生成 API 测试集合",
+    "version": "1.0.0"
+  },
+  "examples": [
+    {
+      "name": "1. Text-to-Video (Fast Model)",
+      "method": "POST",
+      "url": "http://localhost:3002/api/videos/generate",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "text-to-video",
+        "model": "google/veo-3.0-fast",
+        "prompt": "A cute cat playing with a red ball in a sunny garden, slow motion",
+        "duration": 8,
+        "aspectRatio": "16:9",
+        "resolution": "720P",
+        "enhancePrompt": true,
+        "generateAudio": true
+      }
+    },
+    {
+      "name": "2. Text-to-Video (Standard Model)",
+      "method": "POST",
+      "url": "http://localhost:3002/api/videos/generate",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "text-to-video",
+        "model": "google/veo3",
+        "prompt": "A cinematic shot of a dragon flying over mountains at sunset, epic, 4K quality",
+        "duration": 8,
+        "aspectRatio": "16:9",
+        "resolution": "1080P",
+        "negativePrompt": "blurry, low quality, distorted",
+        "enhancePrompt": true
+      }
+    },
+    {
+      "name": "3. Image-to-Video (Fast)",
+      "method": "POST",
+      "url": "http://localhost:3002/api/videos/generate",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "image-to-video",
+        "model": "google/veo-3.0-i2v-fast",
+        "prompt": "The scene comes alive, with natural motion and realistic physics",
+        "imageUrl": "https://example.com/your-image.jpg",
+        "duration": 8,
+        "aspectRatio": "16:9",
+        "resolution": "720P"
+      }
+    },
+    {
+      "name": "4. Portrait Video (9:16)",
+      "method": "POST",
+      "url": "http://localhost:3002/api/videos/generate",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN",
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "type": "text-to-video",
+        "model": "google/veo-3.0-fast",
+        "prompt": "A person walking through a busy city street, mobile phone perspective",
+        "duration": 6,
+        "aspectRatio": "9:16",
+        "resolution": "720P"
+      }
+    },
+    {
+      "name": "5. Poll Task Status",
+      "method": "POST",
+      "url": "http://localhost:3002/api/videos/tasks/{task_id}/poll",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN"
+      }
+    },
+    {
+      "name": "6. Get Task Details",
+      "method": "GET",
+      "url": "http://localhost:3002/api/videos/tasks/{task_id}",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN"
+      }
+    },
+    {
+      "name": "7. Get User Tasks List",
+      "method": "GET",
+      "url": "http://localhost:3002/api/videos/tasks?limit=10&offset=0",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN"
+      }
+    },
+    {
+      "name": "8. Delete Task",
+      "method": "DELETE",
+      "url": "http://localhost:3002/api/videos/tasks/{task_id}",
+      "headers": {
+        "Authorization": "Bearer YOUR_JWT_TOKEN"
+      }
+    }
+  ],
+  "workflows": [
+    {
+      "name": "Complete Video Generation Workflow",
+      "steps": [
+        {
+          "step": 1,
+          "action": "Login to get JWT token",
+          "endpoint": "POST /auth/login",
+          "body": {
+            "account": "user@example.com",
+            "password": "your_password"
+          }
+        },
+        {
+          "step": 2,
+          "action": "Create video generation task",
+          "endpoint": "POST /api/videos/generate",
+          "note": "Save the returned task_id"
+        },
+        {
+          "step": 3,
+          "action": "Poll task status every 5-10 seconds",
+          "endpoint": "POST /api/videos/tasks/{task_id}/poll",
+          "note": "Continue until status is 'completed' or 'failed'"
+        },
+        {
+          "step": 4,
+          "action": "Download or access the generated video",
+          "note": "Use resultUrl or localPath from the response"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Replace YOUR_JWT_TOKEN with actual JWT token from /auth/login",
+    "Replace {task_id} with actual task ID from step 2",
+    "Fast models take 30-60 seconds, standard models take 1-2 minutes",
+    "Poll every 5-10 seconds to check generation progress",
+    "Generated videos are saved to backend/uploads/ai-videos/",
+    "Check Swagger docs at http://localhost:3002/api-docs for interactive testing"
+  ]
+}

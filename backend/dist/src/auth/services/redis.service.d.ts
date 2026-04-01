@@ -7,16 +7,19 @@ export declare class RedisService implements OnModuleInit, OnModuleDestroy {
     constructor(configService: ConfigService);
     onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
-    setOtp(phone: string, otp: string): Promise<void>;
-    getOtp(phone: string): Promise<string | null>;
-    deleteOtp(phone: string): Promise<void>;
+    setOtp(phone: string, otp: string, purpose?: 'login' | 'register' | 'reset'): Promise<void>;
+    getOtp(phone: string, purpose?: 'login' | 'register' | 'reset'): Promise<string | null>;
+    deleteOtp(phone: string, purpose?: 'login' | 'register' | 'reset'): Promise<void>;
+    checkOtpVerifyLimit(identifier: string, purpose: 'login' | 'register' | 'reset'): Promise<boolean>;
+    incrementOtpVerifyAttempt(identifier: string, purpose: 'login' | 'register' | 'reset'): Promise<void>;
+    clearOtpVerifyAttempts(identifier: string, purpose: 'login' | 'register' | 'reset'): Promise<void>;
     checkOtpRateLimit(phone: string): Promise<boolean>;
     setRefreshToken(userId: number, token: string): Promise<void>;
     getRefreshToken(userId: number): Promise<string | null>;
     deleteRefreshToken(userId: number): Promise<void>;
-    setEmailOtp(email: string, otp: string): Promise<void>;
-    getEmailOtp(email: string): Promise<string | null>;
-    deleteEmailOtp(email: string): Promise<void>;
+    setEmailOtp(email: string, otp: string, purpose?: 'register' | 'reset'): Promise<void>;
+    getEmailOtp(email: string, purpose?: 'register' | 'reset'): Promise<string | null>;
+    deleteEmailOtp(email: string, purpose?: 'register' | 'reset'): Promise<void>;
     checkEmailOtpRateLimit(email: string): Promise<boolean>;
     private parseDuration;
 }

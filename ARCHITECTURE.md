@@ -375,7 +375,7 @@ VPS 服务器
 - `JWT_SECRET`, `JWT_REFRESH_SECRET`
 - `REDIS_HOST`, `REDIS_PORT`
 - `STORAGE_PROVIDER=local`
-- `FRONTEND_URL=http://45.76.70.183:3001`
+- `FRONTEND_URL=http://localhost:3001`
 
 ### ❌ 待配置 (生产必需)
 ```bash

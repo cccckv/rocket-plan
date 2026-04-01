@@ -44,13 +44,13 @@ let AuthController = class AuthController {
         return this.authService.login(dto.account, dto.password);
     }
     async sendOtp(sendOtpDto) {
-        return this.authService.sendOtp(sendOtpDto.phone);
+        return this.authService.sendOtp(sendOtpDto.phone, sendOtpDto.purpose || 'register');
     }
     async verifyOtp(verifyOtpDto) {
         return this.authService.verifyOtp(verifyOtpDto.phone, verifyOtpDto.otp);
     }
     async sendEmailOtp(dto) {
-        return this.authService.sendEmailOtp(dto.email);
+        return this.authService.sendEmailOtp(dto.email, dto.purpose || 'register');
     }
     async setPassword(userId, dto) {
         return this.authService.setPassword(userId, dto.password);
@@ -63,11 +63,22 @@ let AuthController = class AuthController {
     }
     async googleAuth() { }
     async googleAuthCallback(req, res) {
-        const { googleId, email, name } = req.user;
-        const result = await this.authService.googleLogin(googleId, email, name);
+        const { googleId, email, name, emailVerified } = req.user;
+        const result = await this.authService.googleLogin(googleId, email, name, emailVerified);
+        res.cookie('accessToken', result.accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+        res.cookie('refreshToken', result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 30 * 24 * 60 * 60 * 1000,
+        });
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-        const redirectUrl = `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
-        res.redirect(redirectUrl);
+        res.redirect(`${frontendUrl}/auth/callback`);
     }
     async refresh(userId, dto) {
         return this.authService.refreshToken(userId, dto.refreshToken);

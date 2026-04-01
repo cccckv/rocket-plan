@@ -40,26 +40,60 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 存储 OTP (5 分钟有效期)
+   * 存储 OTP (5 分钟有效期) - 按用途隔离
    */
-  async setOtp(phone: string, otp: string): Promise<void> {
-    const key = `otp:${phone}`;
+  async setOtp(phone: string, otp: string, purpose: 'login' | 'register' | 'reset' = 'login'): Promise<void> {
+    const key = `otp:${purpose}:${phone}`;
     await this.client.setex(key, 300, otp); // 5 minutes TTL
   }
 
   /**
-   * 获取 OTP
+   * 获取 OTP - 按用途隔离
    */
-  async getOtp(phone: string): Promise<string | null> {
-    const key = `otp:${phone}`;
+  async getOtp(phone: string, purpose: 'login' | 'register' | 'reset' = 'login'): Promise<string | null> {
+    const key = `otp:${purpose}:${phone}`;
     return await this.client.get(key);
   }
 
   /**
-   * 删除 OTP
+   * 删除 OTP - 按用途隔离
    */
-  async deleteOtp(phone: string): Promise<void> {
-    const key = `otp:${phone}`;
+  async deleteOtp(phone: string, purpose: 'login' | 'register' | 'reset' = 'login'): Promise<void> {
+    const key = `otp:${purpose}:${phone}`;
+    await this.client.del(key);
+  }
+
+  /**
+   * 检查 OTP 验证次数限制 (5次失败后锁定10分钟)
+   */
+  async checkOtpVerifyLimit(identifier: string, purpose: 'login' | 'register' | 'reset'): Promise<boolean> {
+    const key = `otp:verify:${purpose}:${identifier}`;
+    const attempts = await this.client.get(key);
+    
+    if (attempts && parseInt(attempts, 10) >= 5) {
+      return false; // 已达到验证次数限制
+    }
+    
+    return true;
+  }
+
+  /**
+   * 记录 OTP 验证失败次数
+   */
+  async incrementOtpVerifyAttempt(identifier: string, purpose: 'login' | 'register' | 'reset'): Promise<void> {
+    const key = `otp:verify:${purpose}:${identifier}`;
+    const current = await this.client.get(key);
+    const attempts = current ? parseInt(current, 10) + 1 : 1;
+    
+    // 10分钟锁定期
+    await this.client.setex(key, 600, attempts.toString());
+  }
+
+  /**
+   * 清除 OTP 验证失败记录 (验证成功时调用)
+   */
+  async clearOtpVerifyAttempts(identifier: string, purpose: 'login' | 'register' | 'reset'): Promise<void> {
+    const key = `otp:verify:${purpose}:${identifier}`;
     await this.client.del(key);
   }
 
@@ -106,26 +140,29 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 存储邮箱 OTP (5 分钟有效期)
+   * 存储邮箱 OTP (5 分钟有效期) - 按用途隔离
    */
-  async setEmailOtp(email: string, otp: string): Promise<void> {
-    const key = `otp:email:${email}`;
+  async setEmailOtp(email: string, otp: string, purpose: 'register' | 'reset' = 'register'): Promise<void> {
+    const normalizedEmail = email.toLowerCase();
+    const key = `otp:email:${purpose}:${normalizedEmail}`;
     await this.client.setex(key, 300, otp);
   }
 
   /**
-   * 获取邮箱 OTP
+   * 获取邮箱 OTP - 按用途隔离
    */
-  async getEmailOtp(email: string): Promise<string | null> {
-    const key = `otp:email:${email}`;
+  async getEmailOtp(email: string, purpose: 'register' | 'reset' = 'register'): Promise<string | null> {
+    const normalizedEmail = email.toLowerCase();
+    const key = `otp:email:${purpose}:${normalizedEmail}`;
     return await this.client.get(key);
   }
 
   /**
-   * 删除邮箱 OTP
+   * 删除邮箱 OTP - 按用途隔离
    */
-  async deleteEmailOtp(email: string): Promise<void> {
-    const key = `otp:email:${email}`;
+  async deleteEmailOtp(email: string, purpose: 'register' | 'reset' = 'register'): Promise<void> {
+    const normalizedEmail = email.toLowerCase();
+    const key = `otp:email:${purpose}:${normalizedEmail}`;
     await this.client.del(key);
   }
 
@@ -133,7 +170,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
    * 检查邮箱 OTP 发送频率限制 (60 秒)
    */
   async checkEmailOtpRateLimit(email: string): Promise<boolean> {
-    const key = `otp:ratelimit:email:${email}`;
+    const normalizedEmail = email.toLowerCase();
+    const key = `otp:ratelimit:email:${normalizedEmail}`;
     const exists = await this.client.exists(key);
     if (exists) return false;
     await this.client.setex(key, 60, '1');

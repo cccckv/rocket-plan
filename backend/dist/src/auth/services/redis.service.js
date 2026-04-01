@@ -49,16 +49,34 @@ let RedisService = RedisService_1 = class RedisService {
         await this.client.quit();
         this.logger.log('Redis client disconnected');
     }
-    async setOtp(phone, otp) {
-        const key = `otp:${phone}`;
+    async setOtp(phone, otp, purpose = 'login') {
+        const key = `otp:${purpose}:${phone}`;
         await this.client.setex(key, 300, otp);
     }
-    async getOtp(phone) {
-        const key = `otp:${phone}`;
+    async getOtp(phone, purpose = 'login') {
+        const key = `otp:${purpose}:${phone}`;
         return await this.client.get(key);
     }
-    async deleteOtp(phone) {
-        const key = `otp:${phone}`;
+    async deleteOtp(phone, purpose = 'login') {
+        const key = `otp:${purpose}:${phone}`;
+        await this.client.del(key);
+    }
+    async checkOtpVerifyLimit(identifier, purpose) {
+        const key = `otp:verify:${purpose}:${identifier}`;
+        const attempts = await this.client.get(key);
+        if (attempts && parseInt(attempts, 10) >= 5) {
+            return false;
+        }
+        return true;
+    }
+    async incrementOtpVerifyAttempt(identifier, purpose) {
+        const key = `otp:verify:${purpose}:${identifier}`;
+        const current = await this.client.get(key);
+        const attempts = current ? parseInt(current, 10) + 1 : 1;
+        await this.client.setex(key, 600, attempts.toString());
+    }
+    async clearOtpVerifyAttempts(identifier, purpose) {
+        const key = `otp:verify:${purpose}:${identifier}`;
         await this.client.del(key);
     }
     async checkOtpRateLimit(phone) {
@@ -84,20 +102,24 @@ let RedisService = RedisService_1 = class RedisService {
         const key = `refresh_token:${userId}`;
         await this.client.del(key);
     }
-    async setEmailOtp(email, otp) {
-        const key = `otp:email:${email}`;
+    async setEmailOtp(email, otp, purpose = 'register') {
+        const normalizedEmail = email.toLowerCase();
+        const key = `otp:email:${purpose}:${normalizedEmail}`;
         await this.client.setex(key, 300, otp);
     }
-    async getEmailOtp(email) {
-        const key = `otp:email:${email}`;
+    async getEmailOtp(email, purpose = 'register') {
+        const normalizedEmail = email.toLowerCase();
+        const key = `otp:email:${purpose}:${normalizedEmail}`;
         return await this.client.get(key);
     }
-    async deleteEmailOtp(email) {
-        const key = `otp:email:${email}`;
+    async deleteEmailOtp(email, purpose = 'register') {
+        const normalizedEmail = email.toLowerCase();
+        const key = `otp:email:${purpose}:${normalizedEmail}`;
         await this.client.del(key);
     }
     async checkEmailOtpRateLimit(email) {
-        const key = `otp:ratelimit:email:${email}`;
+        const normalizedEmail = email.toLowerCase();
+        const key = `otp:ratelimit:email:${normalizedEmail}`;
         const exists = await this.client.exists(key);
         if (exists)
             return false;

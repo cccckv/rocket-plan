@@ -19,6 +19,7 @@ const materials_module_1 = require("./materials/materials.module");
 const scripts_module_1 = require("./scripts/scripts.module");
 const admin_module_1 = require("./admin/admin.module");
 const storage_module_1 = require("./storage/storage.module");
+const credits_module_1 = require("./credits/credits.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -37,6 +38,7 @@ exports.AppModule = AppModule = __decorate([
             materials_module_1.MaterialsModule,
             scripts_module_1.ScriptsModule,
             admin_module_1.AdminModule,
+            credits_module_1.CreditsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

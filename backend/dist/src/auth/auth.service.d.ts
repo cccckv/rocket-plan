@@ -13,7 +13,7 @@ export declare class AuthService {
     private emailService;
     private readonly logger;
     constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService, smsService: SmsService, redisService: RedisService, emailService: EmailService);
-    sendOtp(phone: string): Promise<{
+    sendOtp(phone: string, purpose?: 'login' | 'register' | 'reset'): Promise<{
         message: string;
     }>;
     verifyOtp(phone: string, otp: string): Promise<{
@@ -69,7 +69,7 @@ export declare class AuthService {
             hasPassword: boolean;
         };
     }>;
-    googleLogin(googleId: string, email: string, displayName?: string): Promise<{
+    googleLogin(googleId: string, email: string, displayName?: string, emailVerified?: boolean): Promise<{
         accessToken: string;
         refreshToken: string;
         expiresIn: string;
@@ -86,7 +86,7 @@ export declare class AuthService {
     setPassword(userId: number, password: string): Promise<{
         message: string;
     }>;
-    sendEmailOtp(email: string): Promise<{
+    sendEmailOtp(email: string, purpose?: 'register' | 'reset'): Promise<{
         message: string;
     }>;
     resetPassword(phone: string, otp: string, newPassword: string): Promise<{

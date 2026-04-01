@@ -51,7 +51,7 @@ export class AuthController {
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
   async sendOtp(@Body() sendOtpDto: SendOtpDto) {
-    return this.authService.sendOtp(sendOtpDto.phone);
+    return this.authService.sendOtp(sendOtpDto.phone, sendOtpDto.purpose || 'register');
   }
 
   @Post('verify-otp')
@@ -63,7 +63,7 @@ export class AuthController {
   @Post('send-email-otp')
   @HttpCode(HttpStatus.OK)
   async sendEmailOtp(@Body() dto: SendEmailOtpDto) {
-    return this.authService.sendEmailOtp(dto.email);
+    return this.authService.sendEmailOtp(dto.email, dto.purpose || 'register');
   }
 
   @Post('set-password')
@@ -92,13 +92,25 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   async googleAuthCallback(@Req() req: any, @Res() res: Response) {
-    const { googleId, email, name } = req.user;
-    const result = await this.authService.googleLogin(googleId, email, name);
+    const { googleId, email, name, emailVerified } = req.user;
+    const result = await this.authService.googleLogin(googleId, email, name, emailVerified);
+
+    res.cookie('accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-    const redirectUrl = `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`;
-
-    res.redirect(redirectUrl);
+    res.redirect(`${frontendUrl}/auth/callback`);
   }
 
   @Post('refresh')

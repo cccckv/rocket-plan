@@ -13,6 +13,7 @@ exports.SendOtpDto = void 0;
 const class_validator_1 = require("class-validator");
 class SendOtpDto {
     phone;
+    purpose;
 }
 exports.SendOtpDto = SendOtpDto;
 __decorate([
@@ -22,4 +23,9 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], SendOtpDto.prototype, "phone", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['login', 'register', 'reset']),
+    __metadata("design:type", String)
+], SendOtpDto.prototype, "purpose", void 0);
 //# sourceMappingURL=send-otp.dto.js.map

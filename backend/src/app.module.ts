@@ -10,6 +10,7 @@ import { MaterialsModule } from './materials/materials.module';
 import { ScriptsModule } from './scripts/scripts.module';
 import { AdminModule } from './admin/admin.module';
 import { StorageModule } from './storage/storage.module';
+import { CreditsModule } from './credits/credits.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StorageModule } from './storage/storage.module';
     MaterialsModule,
     ScriptsModule,
     AdminModule,
+    CreditsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,0 +1,90 @@
+import { VideosService } from './videos.service';
+import { CreateVideoTaskDto } from './dto';
+export declare class VideosController {
+    private readonly videosService;
+    constructor(videosService: VideosService);
+    createVideoTask(req: any, dto: CreateVideoTaskDto): Promise<{
+        model: string;
+        status: string;
+        prompt: string;
+        type: string;
+        duration: number | null;
+        createdAt: Date;
+        updatedAt: Date;
+        id: string;
+        thumbnailUrl: string | null;
+        userId: number;
+        imageUrl: string | null;
+        videoUrl: string | null;
+        resultUrl: string | null;
+        localPath: string | null;
+        metadata: string | null;
+        errorMsg: string | null;
+        generationId: string | null;
+    }>;
+    getTask(req: any, taskId: string): Promise<{
+        model: string;
+        status: string;
+        prompt: string;
+        type: string;
+        duration: number | null;
+        createdAt: Date;
+        updatedAt: Date;
+        id: string;
+        thumbnailUrl: string | null;
+        userId: number;
+        imageUrl: string | null;
+        videoUrl: string | null;
+        resultUrl: string | null;
+        localPath: string | null;
+        metadata: string | null;
+        errorMsg: string | null;
+        generationId: string | null;
+    }>;
+    pollTask(req: any, taskId: string): Promise<{
+        model: string;
+        status: string;
+        prompt: string;
+        type: string;
+        duration: number | null;
+        createdAt: Date;
+        updatedAt: Date;
+        id: string;
+        thumbnailUrl: string | null;
+        userId: number;
+        imageUrl: string | null;
+        videoUrl: string | null;
+        resultUrl: string | null;
+        localPath: string | null;
+        metadata: string | null;
+        errorMsg: string | null;
+        generationId: string | null;
+    }>;
+    getTasks(req: any, limit: number, offset: number): Promise<{
+        tasks: {
+            model: string;
+            status: string;
+            prompt: string;
+            type: string;
+            duration: number | null;
+            createdAt: Date;
+            updatedAt: Date;
+            id: string;
+            thumbnailUrl: string | null;
+            userId: number;
+            imageUrl: string | null;
+            videoUrl: string | null;
+            resultUrl: string | null;
+            localPath: string | null;
+            metadata: string | null;
+            errorMsg: string | null;
+            generationId: string | null;
+        }[];
+        total: number;
+        limit: number;
+        offset: number;
+    }>;
+    deleteTask(req: any, taskId: string): Promise<{
+        success: boolean;
+    }>;
+}

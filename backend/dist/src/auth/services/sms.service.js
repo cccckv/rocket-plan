@@ -39,7 +39,7 @@ let SmsService = SmsService_1 = class SmsService {
         }
         const twilioAccountSid = this.configService.get('TWILIO_ACCOUNT_SID');
         const twilioAuthToken = this.configService.get('TWILIO_AUTH_TOKEN');
-        if (twilioAccountSid && twilioAuthToken) {
+        if (twilioAccountSid && twilioAuthToken && twilioAccountSid.startsWith('AC')) {
             this.twilioClient = new twilio_1.Twilio(twilioAccountSid, twilioAuthToken);
             this.logger.log('Twilio SMS client initialized');
         }

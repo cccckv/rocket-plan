@@ -22,10 +22,18 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ): Promise<any> {
     const { id, emails, displayName } = profile;
     
+    if (!emails || emails.length === 0) {
+      return done(new Error('No email provided by Google'), false);
+    }
+    
+    const primaryEmail = emails[0];
+    const emailVerified = primaryEmail.verified || false;
+    
     const user = {
       googleId: id,
-      email: emails[0].value,
+      email: primaryEmail.value,
       name: displayName,
+      emailVerified,
     };
     
     done(null, user);
